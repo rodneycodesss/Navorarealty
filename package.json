@@ -10,5 +10,8 @@
     "build": "cd frontend && npm run build"
   },
   "author": "Rodstar",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/server": "^1.2.0"
+  }
 }

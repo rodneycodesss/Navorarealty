@@ -1,0 +1,10 @@
+# Supabase CLI Configuration
+
+project_id = "aaprfltogeoscifrhvpi"
+
+[functions.todos]
+verify_jwt = true # Requires a valid user JWT to execute
+
+# For non-"user" auth modes (like publishable or secret auth), set verify_jwt to false
+[functions.non_user_service]
+verify_jwt = false
