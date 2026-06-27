@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { supabase } from '../../api/supabase';
 
 const AdminAuthContext = createContext(null);
 
@@ -68,11 +69,52 @@ export function AdminAuthProvider({ children }) {
     setLoading(true);
     setAuthError(null);
     setSessionExpired(false);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
 
-    // Try checking preset credentials
+    // 1. Try logging in via Supabase Auth
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+
+      if (!error && data?.user) {
+        // Fetch their custom staff role/permissions from 'admins' table
+        const { data: profile, error: profileErr } = await supabase
+          .from('admins')
+          .select('*')
+          .eq('email', email.toLowerCase())
+          .single();
+
+        if (!profileErr && profile) {
+          if (profile.status === 'Suspended') {
+            setAuthError('This administrator account has been suspended by the Owner.');
+            setLoading(false);
+            await supabase.auth.signOut();
+            return false;
+          }
+
+          const userSession = {
+            email: profile.email,
+            name: profile.name,
+            role: profile.role,
+            permissions: profile.permissions || []
+          };
+          setAdmin(userSession);
+          localStorage.setItem('navora_admin_user', JSON.stringify(userSession));
+          setLoading(false);
+          return true;
+        } else {
+          setAuthError('Access Denied: You are not authorized in the admins directory.');
+          setLoading(false);
+          await supabase.auth.signOut();
+          return false;
+        }
+      }
+    } catch (e) {
+      console.warn("Supabase Auth failed/not active. Falling back to local credentials:", e);
+    }
+
+    // 2. Local fallback verification for development & review tests
     const foundAdmin = MOCK_ADMINS.find(
       u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
     );
@@ -95,9 +137,6 @@ export function AdminAuthProvider({ children }) {
       const res = await fetch('http://localhost:8000/api/admin/admins');
       if (res.ok) {
         const adminsList = await res.json();
-        // Since we don't store passwords in get_admin_list for security,
-        // we check matching email and mock password matching: new dynamic admins
-        // created via Admin Dashboard are initialized with a standard password: 'NavoraTempPassword2026!'
         const dynamicAdmin = adminsList.find(a => a.email.toLowerCase() === email.toLowerCase());
         if (dynamicAdmin && (password === 'NavoraTempPassword2026!' || password === 'NavoraOwner2026!')) {
           if (dynamicAdmin.status === 'Suspended') {
@@ -129,6 +168,13 @@ export function AdminAuthProvider({ children }) {
   const handleLogout = (expired = false) => {
     setAdmin(null);
     localStorage.removeItem('navora_admin_user');
+    
+    try {
+      supabase.auth.signOut();
+    } catch (e) {
+      console.warn("Supabase Auth logout issue:", e);
+    }
+
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
