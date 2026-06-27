@@ -99,6 +99,35 @@ CREATE TABLE IF NOT EXISTS public.settings (
 
 
 -- ==========================================
+-- 8. AUTOMATIC AUTH PROFILE SYNCHRONIZATION TRIGGER
+-- ==========================================
+-- Automatically registers users invited/created via Supabase Auth into public.admins
+-- Enforces that only admin@navorarealty.com is granted the Super Admin role.
+CREATE OR REPLACE FUNCTION public.handle_new_auth_admin()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.admins (email, name, role, status, permissions)
+    VALUES (
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+        CASE WHEN LOWER(NEW.email) = 'admin@navorarealty.com' THEN 'Super Admin' ELSE 'Admin' END,
+        'Active',
+        CASE WHEN LOWER(NEW.email) = 'admin@navorarealty.com' THEN ARRAY['all']::text[] ELSE ARRAY['properties', 'leads', 'viewings']::text[] END
+    )
+    ON CONFLICT (email) DO UPDATE
+    SET role = EXCLUDED.role, permissions = EXCLUDED.permissions;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Bind trigger to auth.users table inserts
+DROP TRIGGER IF EXISTS on_auth_user_created_admin ON auth.users;
+CREATE TRIGGER on_auth_user_created_admin
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_admin();
+
+
+-- ==========================================
 -- SEED INITIAL DATA
 -- ==========================================
 
