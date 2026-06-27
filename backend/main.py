@@ -646,6 +646,7 @@ def get_admin_stats():
     # Calculate overview stats metrics
     list_res = properties_db
     leads_res = leads_db
+    viewings_res = viewings_db
     whatsapp_total = whatsapp_db["total_convs"]
     
     if supabase:
@@ -656,6 +657,9 @@ def get_admin_stats():
             l_resp = supabase.table("leads").select("*").execute()
             if l_resp.data:
                 leads_res = l_resp.data
+            v_resp = supabase.table("viewings").select("*").execute()
+            if v_resp.data:
+                viewings_res = v_resp.data
         except Exception as e:
             print(f"Supabase error in get_admin_stats: {e}")
             
@@ -663,7 +667,9 @@ def get_admin_stats():
     pending = len([p for p in list_res if not p["verified"]])
     approved = len([p for p in list_res if p["verified"]])
     active_leads = len([l for l in leads_res if l["status"] not in ["Closed", "Lost"]])
-    viewings = len(viewings_db)
+    
+    # Active/Upcoming viewing requests
+    active_viewings = len([v for v in viewings_res if v.get("status") in ["Pending", "Approved", "Rescheduled"]])
     
     return {
         "total_listings": total_listings,
@@ -671,7 +677,7 @@ def get_admin_stats():
         "approved_listings": approved,
         "rejected_listings": 0,
         "active_leads": active_leads,
-        "viewing_requests": viewings,
+        "viewing_requests": active_viewings,
         "monthly_visitors": 2480,
         "new_submissions": pending,
         "whatsapp_inquiries": whatsapp_total,
@@ -799,21 +805,9 @@ def get_admin_viewings():
 
 @app.put("/api/admin/viewings/{viewing_id}")
 def update_admin_viewing(viewing_id: int, request: ViewingUpdate):
-    if supabase:
-        try:
-            update_payload = {"status": request.status}
-            if request.preferred_date:
-                update_payload["preferred_date"] = request.preferred_date
-            if request.preferred_time:
-                update_payload["preferred_time"] = request.preferred_time
-            response = supabase.table("viewings").update(update_payload).eq("id", viewing_id).execute()
-            if response.data:
-                view = response.data[0]
-                log_action("admin@navorarealty.com", f"Updated tour booking ID {viewing_id} to {request.status}", f"Customer: {view.get('customer')}")
-                return {"success": True, "viewing": view}
-        except Exception as e:
-            print(f"Supabase error updating viewing: {e}")
-            
+    updated_view = None
+    
+    # 1. Update local memory database
     for view in viewings_db:
         if view["id"] == viewing_id:
             view["status"] = request.status
@@ -821,8 +815,42 @@ def update_admin_viewing(viewing_id: int, request: ViewingUpdate):
                 view["preferred_date"] = request.preferred_date
             if request.preferred_time:
                 view["preferred_time"] = request.preferred_time
-            log_action("admin@navorarealty.com", f"Updated tour booking ID {viewing_id} to {request.status}", f"Customer: {view['customer']}")
-            return {"success": True, "viewing": view}
+            updated_view = view
+            
+            # Sync corresponding lead to "Negotiating" if viewing is Completed
+            if request.status.lower() == "completed":
+                for lead in leads_db:
+                    clean_lead_phone = "".join(filter(str.isdigit, lead["phone"]))
+                    clean_viewing_phone = "".join(filter(str.isdigit, view.get("phone", "")))
+                    if clean_lead_phone == clean_viewing_phone or lead["customer"].lower() == view.get("customer", "").lower():
+                        lead["status"] = "Negotiating"
+                        lead["notes"] = f"{lead.get('notes', '')}\n[System Log 2026-06-28]: Client completed property tour viewing."
+                        if supabase:
+                            try:
+                                supabase.table("leads").update({
+                                    "status": "Negotiating",
+                                    "notes": lead["notes"]
+                                }).eq("id", lead["id"]).execute()
+                            except Exception as le:
+                                print(f"Supabase error syncing lead: {le}")
+
+    # 2. Update remote Supabase database if connected
+    if supabase:
+        try:
+            update_payload = {"status": request.status}
+            if request.preferred_date:
+                update_payload["preferred_date"] = request.preferred_date
+            if request.preferred_time:
+                update_payload["preferred_time"] = request.preferred_time
+            
+            supabase.table("viewings").update(update_payload).eq("id", viewing_id).execute()
+        except Exception as e:
+            print(f"Supabase error updating viewing: {e}")
+            
+    if updated_view:
+        log_action("admin@navorarealty.com", f"Updated tour booking ID {viewing_id} to {request.status}", f"Customer: {updated_view['customer']}")
+        return {"success": True, "viewing": updated_view}
+        
     return {"success": False, "message": "Viewing request not found"}
 
 @app.get("/api/admin/leads")
