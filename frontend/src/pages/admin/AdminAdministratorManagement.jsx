@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAdminAuth } from '../../components/admin/AdminAuthProvider';
 import {
-  UserCheck2, Plus, Edit2, ShieldAlert, Key, Trash2, Mail, ShieldCheck, Copy, Check
+  UserCheck2, Plus, Edit2, ShieldAlert, Key, Trash2, Mail, ShieldCheck, Copy, Check, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,7 +11,7 @@ export default function AdminAdministratorManagement() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   
-  // Add/Edit Modals
+  // Add/Edit Modals (Role is strictly locked to Admin for newly created accounts)
   const [addModal, setAddModal] = useState({ open: false, name: '', email: '', role: 'Admin', permissions: ['properties', 'leads'] });
   const [editModal, setEditModal] = useState({ open: false, adminItem: null });
   const [tempPassword, setTempPassword] = useState(null);
@@ -74,12 +74,13 @@ export default function AdminAdministratorManagement() {
     e.preventDefault();
     if (!addModal.name || !addModal.email) return;
 
+    // For new creations, force standard Admin role and prevent 'all' privileges
     const payload = {
       email: addModal.email,
       password: 'NavoraTempPassword2026!',
       name: addModal.name,
-      role: addModal.role,
-      permissions: addModal.role === 'Super Admin' ? ['all'] : addModal.permissions
+      role: 'Admin',
+      permissions: addModal.permissions.filter(p => p !== 'all')
     };
 
     fetch('http://localhost:8000/api/admin/admins', {
@@ -137,15 +138,18 @@ export default function AdminAdministratorManagement() {
   const handleSaveEditAdmin = (e) => {
     e.preventDefault();
     const item = editModal.adminItem;
+    const isOwner = item.email.toLowerCase() === 'admin@navorarealty.com';
+    
+    const payload = {
+      status: item.status,
+      permissions: isOwner ? ['all'] : item.permissions.filter(p => p !== 'all'),
+      role: isOwner ? 'Super Admin' : 'Admin'
+    };
     
     fetch(`http://localhost:8000/api/admin/admins/${item.email}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        status: item.status,
-        permissions: item.role === 'Super Admin' ? ['all'] : item.permissions,
-        role: item.role
-      })
+      body: JSON.stringify(payload)
     })
       .then(res => res.json())
       .then(data => {
@@ -406,14 +410,12 @@ export default function AdminAdministratorManagement() {
                   </div>
                   <div>
                     <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-1">Role Type</label>
-                    <select
-                      value={addModal.role}
-                      onChange={(e) => setAddModal({ ...addModal, role: e.target.value })}
-                      className="w-full bg-charcoal-dark border border-gray-800 rounded-lg p-2.5 text-white focus:outline-none"
-                    >
-                      <option value="Admin">Standard Admin</option>
-                      <option value="Super Admin">Super Admin (Full Access)</option>
-                    </select>
+                    <input
+                      type="text"
+                      disabled
+                      value="Standard Admin"
+                      className="w-full bg-charcoal-dark/45 border border-gray-800 rounded-lg p-2.5 text-gray-400 focus:outline-none cursor-not-allowed"
+                    />
                   </div>
 
                   {addModal.role === 'Admin' && (
@@ -467,14 +469,12 @@ export default function AdminAdministratorManagement() {
             <form onSubmit={handleSaveEditAdmin} className="space-y-4 text-xs font-semibold">
               <div>
                 <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-1">Account Role</label>
-                <select
+                <input
+                  type="text"
+                  disabled
                   value={editModal.adminItem.role}
-                  onChange={(e) => setEditModal({ ...editModal, adminItem: { ...editModal.adminItem, role: e.target.value } })}
-                  className="w-full bg-charcoal-dark border border-gray-800 rounded-lg p-2.5 text-white focus:outline-none"
-                >
-                  <option value="Admin">Standard Admin</option>
-                  <option value="Super Admin">Super Admin</option>
-                </select>
+                  className="w-full bg-charcoal-dark/45 border border-gray-800 rounded-lg p-2.5 text-gray-400 focus:outline-none cursor-not-allowed"
+                />
               </div>
 
               {editModal.adminItem.role === 'Admin' && (

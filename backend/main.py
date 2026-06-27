@@ -862,14 +862,19 @@ def create_new_admin(admin: AdminCreate):
         if item["email"].lower() == admin.email.lower():
             return {"success": False, "message": "Administrator account already exists"}
             
+    # Force Standard Admin role and filter out 'all' privilege for anyone other than owner email
+    is_owner = admin.email.lower() == "admin@navorarealty.com"
+    role = "Super Admin" if is_owner else "Admin"
+    permissions = ["all"] if is_owner else [p for p in admin.permissions if p != "all"]
+
     new_admin = {
         "email": admin.email,
         "name": admin.name,
-        "role": admin.role,
+        "role": role,
         "status": "Active",
         "created": "2026-06-27",
         "last_login": "Never",
-        "permissions": admin.permissions
+        "permissions": permissions
     }
     
     if supabase:
@@ -884,23 +889,28 @@ def create_new_admin(admin: AdminCreate):
 
 @app.put("/api/admin/admins/{admin_email}")
 def update_existing_admin(admin_email: str, request: AdminUpdate):
+    is_owner = admin_email.lower() == "admin@navorarealty.com"
+    role = "Super Admin" if is_owner else "Admin"
+    permissions = ["all"] if is_owner else [p for p in request.permissions if p != "all"]
+    status = request.status
+
     if supabase:
         try:
-            update_payload = {"status": request.status, "permissions": request.permissions, "role": request.role}
+            update_payload = {"status": status, "permissions": permissions, "role": role}
             response = supabase.table("admins").update(update_payload).eq("email", admin_email).execute()
             if response.data:
                 item = response.data[0]
-                log_action("admin@navorarealty.com", f"Updated Admin Account ({request.status})", f"Admin: {item.get('name')}")
+                log_action("admin@navorarealty.com", f"Updated Admin Account ({status})", f"Admin: {item.get('name')}")
                 return {"success": True, "admin": item}
         except Exception as e:
             print(f"Supabase error updating administrator: {e}")
             
     for item in admins_db:
         if item["email"].lower() == admin_email.lower():
-            item["status"] = request.status
-            item["permissions"] = request.permissions
-            item["role"] = request.role
-            log_action("admin@navorarealty.com", f"Updated Admin Account ({request.status})", f"Admin: {item['name']}")
+            item["status"] = status
+            item["permissions"] = permissions
+            item["role"] = role
+            log_action("admin@navorarealty.com", f"Updated Admin Account ({status})", f"Admin: {item['name']}")
             return {"success": True, "admin": item}
     return {"success": False, "message": "Administrator not found"}
 
