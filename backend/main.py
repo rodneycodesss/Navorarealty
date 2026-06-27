@@ -2,6 +2,26 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+import os
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+# Load env variables at boot
+load_dotenv()
+
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_KEY")
+
+if supabase_url and supabase_key:
+    try:
+        supabase: Client = create_client(supabase_url, supabase_key)
+        print(f"Supabase Client initialized: {supabase_url}")
+    except Exception as e:
+        print(f"Failed to initialize Supabase client: {e}")
+        supabase = None
+else:
+    print("Supabase credentials not found. Operating in local mock fallback memory mode.")
+    supabase = None
 
 app = FastAPI(title="Navora Realty API", version="1.0.0")
 
@@ -235,7 +255,14 @@ def get_properties(
     purpose: Optional[str] = None,
 ):
     results = properties_db
-    
+    if supabase:
+        try:
+            response = supabase.table("properties").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error in get_properties: {e}")
+            
     if purpose:
         purpose_lower = purpose.lower()
         if purpose_lower == "sale":
@@ -243,8 +270,6 @@ def get_properties(
         elif purpose_lower == "rent":
             results = [p for p in results if p["for_rent"]]
         elif purpose_lower == "airbnb":
-            # Properties for sale and rent can also be secured for BNBs,
-            # so filtering by airbnb_ready captures all of them!
             results = [p for p in results if p["airbnb_ready"]]
 
     if location and location.lower() != "all":
@@ -272,27 +297,49 @@ def get_properties(
 
 @app.get("/api/properties/{property_id}", response_model=Property)
 def get_property_by_id(property_id: int):
+    if supabase:
+        try:
+            response = supabase.table("properties").select("*").eq("id", property_id).execute()
+            if response.data:
+                return response.data[0]
+        except Exception as e:
+            print(f"Supabase error in get_property_by_id: {e}")
+            
     for p in properties_db:
         if p["id"] == property_id:
             return p
-    # Fallback to first if not found to prevent crashing
     return properties_db[0]
 
 @app.get("/api/featured", response_model=List[Property])
 def get_featured_properties():
-    # Return 3 verified properties for featured section
-    featured = [p for p in properties_db if p["verified"]]
+    results = properties_db
+    if supabase:
+        try:
+            response = supabase.table("properties").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error in get_featured_properties: {e}")
+            
+    featured = [p for p in results if p["verified"]]
     return featured[:3]
 
 @app.get("/api/investment", response_model=List[Property])
-def get_investment_properties():
-    # Sort properties by ROI (descending) to show top investments
-    investments = sorted(properties_db, key=lambda x: x["roi"], reverse=True)
+def get_featured_investment_properties():
+    results = properties_db
+    if supabase:
+        try:
+            response = supabase.table("properties").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error in get_featured_investment_properties: {e}")
+            
+    investments = sorted(results, key=lambda x: x["roi"], reverse=True)
     return [p for p in investments if p["roi"] > 9.0]
 
 @app.post("/api/submit")
 def submit_property(property: PropertySubmit):
-    # Simulated database append
     new_id = len(properties_db) + 1
     new_property = {
         "id": new_id,
@@ -302,12 +349,12 @@ def submit_property(property: PropertySubmit):
         "location": property.location,
         "beds": property.bedrooms,
         "baths": float(property.bathrooms),
-        "sqft": 1500,  # default placeholder
+        "sqft": 1500,
         "parking": 1,
         "year_built": 2026,
         "image_url": "/assets/property_1.png",
         "images": ["/assets/property_1.png"],
-        "verified": False,  # submitted listings default to False until verified
+        "verified": False,
         "airbnb_ready": True,
         "for_sale": True,
         "for_rent": False,
@@ -318,12 +365,34 @@ def submit_property(property: PropertySubmit):
         "amenities": ["Parking", "Security", "Balcony"],
         "description": property.description
     }
-    # For local runtime simulated data persistence
+    
+    if supabase:
+        try:
+            supabase.table("properties").insert(new_property).execute()
+        except Exception as e:
+            print(f"Supabase error in submit_property: {e}")
+            
     properties_db.append(new_property)
     return {"success": True, "message": "Property submitted successfully for verification.", "property_id": new_id}
 
 @app.post("/api/contact")
 def submit_contact(contact: ContactSubmit):
+    # If Supabase exists, insert to issues table
+    if supabase:
+        try:
+            new_issue = {
+                "name": contact.name,
+                "phone": contact.phone,
+                "email": contact.email,
+                "category": "Customer Inquiry",
+                "priority": "Medium",
+                "status": "Open",
+                "messages": [{"sender": "customer", "text": contact.message}]
+            }
+            supabase.table("issues").insert(new_issue).execute()
+        except Exception as e:
+            print(f"Supabase error inserting contact issue: {e}")
+            
     return {"success": True, "message": "Your message has been sent successfully. An agent will contact you shortly."}
 
 # ==========================================
@@ -522,13 +591,20 @@ settings_db = {
 }
 
 def log_action(admin: str, action: str, record: str):
-    audit_logs.insert(0, {
+    new_log = {
         "admin": admin,
         "action": action,
-        "time": "2026-06-27 22:58:00",  # simulated current time
+        "time": "2026-06-27 22:58:00",
         "record": record,
         "ip": "127.0.0.1"
-    })
+    }
+    if supabase:
+        try:
+            supabase.table("audit_logs").insert(new_log).execute()
+        except Exception as e:
+            print(f"Supabase error logging action: {e}")
+            
+    audit_logs.insert(0, new_log)
 
 # ==========================================
 # ADMIN API ROUTER HANDLERS
@@ -537,10 +613,25 @@ def log_action(admin: str, action: str, record: str):
 @app.get("/api/admin/stats")
 def get_admin_stats():
     # Calculate overview stats metrics
-    total_listings = len(properties_db)
-    pending = len([p for p in properties_db if not p["verified"]])
-    approved = len([p for p in properties_db if p["verified"]])
-    active_leads = len([l for l in leads_db if l["status"] not in ["Closed", "Lost"]])
+    list_res = properties_db
+    leads_res = leads_db
+    whatsapp_total = whatsapp_db["total_convs"]
+    
+    if supabase:
+        try:
+            p_resp = supabase.table("properties").select("*").execute()
+            if p_resp.data:
+                list_res = p_resp.data
+            l_resp = supabase.table("leads").select("*").execute()
+            if l_resp.data:
+                leads_res = l_resp.data
+        except Exception as e:
+            print(f"Supabase error in get_admin_stats: {e}")
+            
+    total_listings = len(list_res)
+    pending = len([p for p in list_res if not p["verified"]])
+    approved = len([p for p in list_res if p["verified"]])
+    active_leads = len([l for l in leads_res if l["status"] not in ["Closed", "Lost"]])
     viewings = len(viewings_db)
     
     return {
@@ -552,16 +643,37 @@ def get_admin_stats():
         "viewing_requests": viewings,
         "monthly_visitors": 2480,
         "new_submissions": pending,
-        "whatsapp_inquiries": whatsapp_db["total_convs"],
+        "whatsapp_inquiries": whatsapp_total,
         "website_traffic": 15430
     }
 
 @app.get("/api/admin/properties", response_model=List[Property])
 def get_admin_properties():
-    return properties_db
+    results = properties_db
+    if supabase:
+        try:
+            response = supabase.table("properties").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error in get_admin_properties: {e}")
+    return results
 
 @app.put("/api/admin/properties/{property_id}/verify")
 def verify_property(property_id: int, request: PropertyVerifyRequest):
+    # Try finding in Supabase first
+    if supabase:
+        try:
+            is_verified = (request.status.lower() == "approved")
+            response = supabase.table("properties").update({"verified": is_verified}).eq("id", property_id).execute()
+            if response.data:
+                p = response.data[0]
+                action_str = "Approved Property Listing" if is_verified else f"Rejected Listing (Reason: {request.reason})"
+                log_action("admin@navorarealty.com", action_str, f"{p.get('title')} (ID {property_id})")
+                return {"success": True, "property": p}
+        except Exception as e:
+            print(f"Supabase error verifying property: {e}")
+            
     for p in properties_db:
         if p["id"] == property_id:
             if request.status.lower() == "approved":
@@ -576,6 +688,16 @@ def verify_property(property_id: int, request: PropertyVerifyRequest):
 @app.delete("/api/admin/properties/{property_id}")
 def delete_property_admin(property_id: int):
     global properties_db
+    if supabase:
+        try:
+            response = supabase.table("properties").delete().eq("id", property_id).execute()
+            if response.data:
+                p = response.data[0]
+                log_action("admin@navorarealty.com", "Deleted Property Listing", f"{p.get('title')} (ID {property_id})")
+                return {"success": True, "message": "Property deleted successfully"}
+        except Exception as e:
+            print(f"Supabase error deleting property: {e}")
+            
     for p in properties_db:
         if p["id"] == property_id:
             properties_db = [prop for prop in properties_db if prop["id"] != property_id]
@@ -585,10 +707,40 @@ def delete_property_admin(property_id: int):
 
 @app.get("/api/admin/issues")
 def get_admin_issues():
-    return issues_db
+    results = issues_db
+    if supabase:
+        try:
+            response = supabase.table("issues").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error getting issues: {e}")
+    return results
 
 @app.put("/api/admin/issues/{issue_id}")
 def update_admin_issue(issue_id: int, request: IssueUpdate):
+    if supabase:
+        try:
+            # Fetch current
+            resp = supabase.table("issues").select("*").eq("id", issue_id).execute()
+            if resp.data:
+                ticket = resp.data[0]
+                messages = ticket.get("messages", [])
+                if request.reply:
+                    messages.append({"sender": "admin", "text": request.reply})
+                
+                update_payload = {"status": request.status, "messages": messages}
+                if request.priority:
+                    update_payload["priority"] = request.priority
+                    
+                up_resp = supabase.table("issues").update(update_payload).eq("id", issue_id).execute()
+                if up_resp.data:
+                    t = up_resp.data[0]
+                    log_action("admin@navorarealty.com", f"Replied/Updated ticket ID {issue_id}", f"Ticket Category: {t.get('category')}")
+                    return {"success": True, "ticket": t}
+        except Exception as e:
+            print(f"Supabase error updating support ticket: {e}")
+            
     for ticket in issues_db:
         if ticket["id"] == issue_id:
             ticket["status"] = request.status
@@ -604,10 +756,33 @@ def update_admin_issue(issue_id: int, request: IssueUpdate):
 
 @app.get("/api/admin/viewings")
 def get_admin_viewings():
-    return viewings_db
+    results = viewings_db
+    if supabase:
+        try:
+            response = supabase.table("viewings").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error getting viewings: {e}")
+    return results
 
 @app.put("/api/admin/viewings/{viewing_id}")
 def update_admin_viewing(viewing_id: int, request: ViewingUpdate):
+    if supabase:
+        try:
+            update_payload = {"status": request.status}
+            if request.preferred_date:
+                update_payload["preferred_date"] = request.preferred_date
+            if request.preferred_time:
+                update_payload["preferred_time"] = request.preferred_time
+            response = supabase.table("viewings").update(update_payload).eq("id", viewing_id).execute()
+            if response.data:
+                view = response.data[0]
+                log_action("admin@navorarealty.com", f"Updated tour booking ID {viewing_id} to {request.status}", f"Customer: {view.get('customer')}")
+                return {"success": True, "viewing": view}
+        except Exception as e:
+            print(f"Supabase error updating viewing: {e}")
+            
     for view in viewings_db:
         if view["id"] == viewing_id:
             view["status"] = request.status
@@ -621,10 +796,31 @@ def update_admin_viewing(viewing_id: int, request: ViewingUpdate):
 
 @app.get("/api/admin/leads")
 def get_admin_leads():
-    return leads_db
+    results = leads_db
+    if supabase:
+        try:
+            response = supabase.table("leads").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error getting leads: {e}")
+    return results
 
 @app.put("/api/admin/leads/{lead_id}")
 def update_admin_lead(lead_id: int, request: LeadUpdate):
+    if supabase:
+        try:
+            update_payload = {"status": request.status}
+            if request.notes:
+                update_payload["notes"] = request.notes
+            response = supabase.table("leads").update(update_payload).eq("id", lead_id).execute()
+            if response.data:
+                lead = response.data[0]
+                log_action("admin@navorarealty.com", f"Updated lead CRM ID {lead_id} status to {request.status}", f"Customer: {lead.get('customer')}")
+                return {"success": True, "lead": lead}
+        except Exception as e:
+            print(f"Supabase error updating lead CRM: {e}")
+            
     for lead in leads_db:
         if lead["id"] == lead_id:
             lead["status"] = request.status
@@ -649,11 +845,19 @@ def update_admin_whatsapp_chat(chat_id: str, status: str):
 
 @app.get("/api/admin/admins")
 def get_admin_list():
-    return admins_db
+    results = admins_db
+    if supabase:
+        try:
+            response = supabase.table("admins").select("*").execute()
+            if response.data:
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error getting admins list: {e}")
+    return results
 
 @app.post("/api/admin/admins")
 def create_new_admin(admin: AdminCreate):
-    # Check if exists
+    # Check if exists in memory
     for item in admins_db:
         if item["email"].lower() == admin.email.lower():
             return {"success": False, "message": "Administrator account already exists"}
@@ -667,12 +871,30 @@ def create_new_admin(admin: AdminCreate):
         "last_login": "Never",
         "permissions": admin.permissions
     }
+    
+    if supabase:
+        try:
+            supabase.table("admins").insert(new_admin).execute()
+        except Exception as e:
+            print(f"Supabase error creating administrator account: {e}")
+            
     admins_db.append(new_admin)
     log_action("admin@navorarealty.com", "Created Administrator Account", f"Admin Name: {admin.name} ({admin.email})")
     return {"success": True, "admin": new_admin}
 
 @app.put("/api/admin/admins/{admin_email}")
 def update_existing_admin(admin_email: str, request: AdminUpdate):
+    if supabase:
+        try:
+            update_payload = {"status": request.status, "permissions": request.permissions, "role": request.role}
+            response = supabase.table("admins").update(update_payload).eq("email", admin_email).execute()
+            if response.data:
+                item = response.data[0]
+                log_action("admin@navorarealty.com", f"Updated Admin Account ({request.status})", f"Admin: {item.get('name')}")
+                return {"success": True, "admin": item}
+        except Exception as e:
+            print(f"Supabase error updating administrator: {e}")
+            
     for item in admins_db:
         if item["email"].lower() == admin_email.lower():
             item["status"] = request.status
@@ -689,6 +911,16 @@ def delete_existing_admin(admin_email: str):
     if admin_email.lower() == "admin@navorarealty.com":
         return {"success": False, "message": "Super Admin Owner cannot be deleted."}
         
+    if supabase:
+        try:
+            response = supabase.table("admins").delete().eq("email", admin_email).execute()
+            if response.data:
+                item = response.data[0]
+                log_action("admin@navorarealty.com", "Deleted Admin Account", f"Admin: {item.get('name')} ({admin_email})")
+                return {"success": True, "message": "Administrator deleted successfully"}
+        except Exception as e:
+            print(f"Supabase error deleting administrator: {e}")
+            
     for item in admins_db:
         if item["email"].lower() == admin_email.lower():
             admins_db = [a for a in admins_db if a["email"].lower() != admin_email.lower()]
@@ -698,15 +930,51 @@ def delete_existing_admin(admin_email: str):
 
 @app.get("/api/admin/logs")
 def get_admin_audit_logs():
-    return audit_logs
+    results = audit_logs
+    if supabase:
+        try:
+            response = supabase.table("audit_logs").select("*").execute()
+            if response.data:
+                # Sort logs descending by default
+                results = response.data
+        except Exception as e:
+            print(f"Supabase error getting audit logs: {e}")
+    return results
 
 @app.get("/api/admin/settings")
 def get_admin_settings():
-    return settings_db
+    results = settings_db
+    if supabase:
+        try:
+            response = supabase.table("settings").select("*").execute()
+            if response.data:
+                results = response.data[0]
+        except Exception as e:
+            print(f"Supabase error getting configurations settings: {e}")
+    return results
 
 @app.put("/api/admin/settings")
 def update_admin_settings(request: SettingsUpdate):
     global settings_db
+    update_payload = {
+        "company_name": request.company_name,
+        "email": request.email,
+        "phone": request.phone,
+        "whatsapp": request.whatsapp,
+        "google_maps_key": request.google_maps_key,
+        "seo_description": request.seo_description
+    }
+    
+    if supabase:
+        try:
+            response = supabase.table("settings").update(update_payload).execute()
+            if response.data:
+                settings_db = response.data[0]
+                log_action("admin@navorarealty.com", "Updated Company Settings", "Global Configuration")
+                return {"success": True, "settings": settings_db}
+        except Exception as e:
+            print(f"Supabase error updating settings: {e}")
+            
     settings_db["company_name"] = request.company_name
     settings_db["email"] = request.email
     settings_db["phone"] = request.phone
