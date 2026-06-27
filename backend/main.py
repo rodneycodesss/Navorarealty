@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime, timezone, timedelta
 import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -622,10 +623,14 @@ settings_db = {
 }
 
 def log_action(admin: str, action: str, record: str):
+    # East Africa Time is UTC + 3 hours
+    eat_tz = timezone(timedelta(hours=3))
+    eat_time = datetime.now(eat_tz).strftime("%Y-%m-%d %H:%M:%S")
+    
     new_log = {
         "admin": admin,
         "action": action,
-        "time": "2026-06-27 22:58:00",
+        "time": eat_time,
         "record": record,
         "ip": "127.0.0.1"
     }
