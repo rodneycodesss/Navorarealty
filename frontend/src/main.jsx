@@ -8,7 +8,11 @@ const originalFetch = window.fetch;
 window.fetch = function (input, init) {
   let url = typeof input === 'string' ? input : (input && input.url);
   if (url && url.startsWith('http://localhost:8000')) {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    // If hosted on local machine, use local FastAPI port, otherwise route requests to Render backend
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const productionBackend = 'https://navorarealty.onrender.com';
+    const apiBase = import.meta.env.VITE_API_URL || (isLocalDev ? 'http://localhost:8000' : productionBackend);
+    
     url = url.replace('http://localhost:8000', apiBase);
     if (typeof input === 'string') {
       input = url;
