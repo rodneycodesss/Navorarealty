@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Bed, Bath, Square, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function PropertyCard({ property }) {
+export default function PropertyCard({ property, priority = false }) {
   const {
     id,
     title,
@@ -27,7 +27,12 @@ export default function PropertyCard({ property }) {
       <div className="relative h-64 md:h-72 overflow-hidden flex-shrink-0">
         <img
           src={image_url}
-          alt={title}
+          alt={`${title} – ${location}, Mombasa`}
+          width="600"
+          height="400"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+          decoding="async"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
         />
         
@@ -35,20 +40,20 @@ export default function PropertyCard({ property }) {
         <div className="absolute top-4 left-4 flex flex-col space-y-2 z-10">
           {verified && (
             <span className="bg-emerald-600/95 backdrop-blur-sm text-white text-[10px] font-bold tracking-widest uppercase px-3 py-1.5 rounded-full flex items-center shadow-md">
-              <ShieldCheck size={12} className="mr-1 fill-white/10" />
+              <ShieldCheck size={12} className="mr-1 fill-white/10" aria-hidden="true" />
               Navora Verified
             </span>
           )}
           {airbnb_ready && (
             <span className="bg-deepblue/95 backdrop-blur-sm text-gold text-[10px] font-bold tracking-widest uppercase px-3 py-1.5 rounded-full flex items-center shadow-md">
-              <CheckCircle2 size={12} className="mr-1 fill-gold/10" />
+              <CheckCircle2 size={12} className="mr-1 fill-gold/10" aria-hidden="true" />
               Airbnb Ready
             </span>
           )}
         </div>
 
         {/* Pricing Overlay */}
-        <div className="absolute bottom-4 left-4 bg-deepblue/90 backdrop-blur-sm text-white px-5 py-2.5 font-serif text-lg font-bold shadow-lg border-l-4 border-gold">
+        <div className="absolute bottom-4 left-4 bg-deepblue/90 backdrop-blur-sm text-white px-5 py-2.5 font-serif text-lg font-bold shadow-lg border-l-4 border-gold" aria-label={`Price: ${price}`}>
           {price}
         </div>
       </div>
@@ -58,7 +63,7 @@ export default function PropertyCard({ property }) {
         <div>
           {/* Location */}
           <div className="flex items-center text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2.5">
-            <MapPin size={14} className="text-gold mr-1.5 flex-shrink-0" />
+            <MapPin size={14} className="text-gold mr-1.5 flex-shrink-0" aria-hidden="true" />
             <span>{location}, Mombasa</span>
           </div>
 
@@ -72,22 +77,23 @@ export default function PropertyCard({ property }) {
           {/* Features specs */}
           <div className="grid grid-cols-3 gap-2 border-t border-b border-gray-100 py-4 mb-5 text-gray-600 text-xs font-semibold">
             <div className="flex items-center justify-center space-x-1.5 border-r border-gray-100">
-              <Bed size={15} className="text-gold" />
+              <Bed size={15} className="text-gold" aria-hidden="true" />
               <span>{beds} Bed{beds > 1 ? 's' : ''}</span>
             </div>
             <div className="flex items-center justify-center space-x-1.5 border-r border-gray-100">
-              <Bath size={15} className="text-gold" />
+              <Bath size={15} className="text-gold" aria-hidden="true" />
               <span>{baths} Bath{baths > 1 ? 's' : ''}</span>
             </div>
             <div className="flex items-center justify-center space-x-1.5">
-              <Square size={14} className="text-gold" />
+              <Square size={14} className="text-gold" aria-hidden="true" />
               <span>{sqft} Sqft</span>
             </div>
           </div>
 
-          {/* Action Button */}
+          {/* Action Button – unique aria-label per card to fix "identical links" audit */}
           <Link
             to={`/property/${id}`}
+            aria-label={`View details for ${title} in ${location}`}
             className="w-full text-center block bg-deepblue text-white group-hover:bg-gold group-hover:text-deepblue transition-all duration-300 py-3 uppercase text-xs tracking-widest font-bold shadow-md"
           >
             View Details

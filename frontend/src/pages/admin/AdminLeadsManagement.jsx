@@ -211,8 +211,9 @@ export default function AdminLeadsManagement() {
 
               {/* Status workflow selection */}
               <div>
-                <label className="block text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-2">Update Stage Status</label>
+                <label htmlFor="lead-status-select" className="block text-[9px] uppercase tracking-wider text-gray-400 font-bold mb-2">Update Stage Status</label>
                 <select
+                  id="lead-status-select"
                   value={activeLead.status}
                   onChange={(e) => handleUpdateLead(activeLead.id, e.target.value)}
                   className="w-full bg-charcoal-dark border border-gray-800 rounded-xl p-3 text-xs text-white focus:outline-none"

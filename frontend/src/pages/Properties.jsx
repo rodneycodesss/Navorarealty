@@ -285,8 +285,9 @@ export default function Properties() {
             <div className="space-y-6 text-left">
               {/* Purpose */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Purpose</label>
+                <label htmlFor="filter-purpose" className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Purpose</label>
                 <select
+                  id="filter-purpose"
                   value={filters.purpose}
                   onChange={(e) => handleFilterChange('purpose', e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold font-sans"
@@ -300,8 +301,9 @@ export default function Properties() {
 
               {/* Location */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Location</label>
+                <label htmlFor="filter-location" className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Location</label>
                 <select
+                  id="filter-location"
                   value={filters.location}
                   onChange={(e) => handleFilterChange('location', e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold font-sans"
@@ -317,8 +319,9 @@ export default function Properties() {
 
               {/* Property Type */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Property Type</label>
+                <label htmlFor="filter-type" className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Property Type</label>
                 <select
+                  id="filter-type"
                   value={filters.type}
                   onChange={(e) => handleFilterChange('type', e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold font-sans"
@@ -332,8 +335,9 @@ export default function Properties() {
 
               {/* Price Range */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Price Limit</label>
+                <label htmlFor="filter-maxprice" className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Price Limit</label>
                 <select
+                  id="filter-maxprice"
                   value={filters.max_price}
                   onChange={(e) => handleFilterChange('max_price', e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold font-sans"

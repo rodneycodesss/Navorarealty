@@ -112,7 +112,7 @@ export default function Home() {
     <div className="relative">
       
       {/* 1. Hero Section with Carousel & Modern Filters */}
-      <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[90vh] flex items-center justify-center overflow-hidden" aria-label="Featured property hero">
         <div className="absolute inset-0 z-0">
           <AnimatePresence mode="wait">
             <motion.div
@@ -121,11 +121,22 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1.5 }}
-              className="absolute inset-0 w-full h-full bg-cover bg-center"
-              style={{ backgroundImage: `url(${heroImages[heroIndex]})` }}
-            />
+              className="absolute inset-0 w-full h-full"
+            >
+              {/* Real <img> tag so Lighthouse/browsers can discover and preload the LCP element */}
+              <img
+                src={heroImages[heroIndex]}
+                alt={heroIndex === 0 ? 'Beachfront property exterior in Mombasa, Kenya' : heroIndex === 1 ? 'Luxury interior of a coastal apartment in Mombasa' : 'Scenic coastal property exterior at Mombasa'}
+                width="1920"
+                height="1080"
+                fetchPriority={heroIndex === 0 ? 'high' : 'auto'}
+                loading="eager"
+                decoding="auto"
+                className="w-full h-full object-cover"
+              />
+            </motion.div>
           </AnimatePresence>
-          <div className="absolute inset-0 bg-gradient-to-r from-deepblue/80 via-deepblue/45 to-charcoal/80"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-deepblue/80 via-deepblue/45 to-charcoal/80" aria-hidden="true"></div>
         </div>
 
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto flex flex-col justify-center items-center h-full">
@@ -151,7 +162,7 @@ export default function Home() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.8 }}
-            className="text-gray-200 text-base md:text-xl max-w-2xl mb-12 font-sans font-light leading-relaxed"
+            className="text-white/90 text-base md:text-xl max-w-2xl mb-12 font-sans font-light leading-relaxed"
           >
             Browse carefully verified apartments, holiday homes, beachfront properties, and investment opportunities across Kenya's coast.
           </motion.p>
@@ -163,11 +174,12 @@ export default function Home() {
             transition={{ delay: 0.8, duration: 0.8 }}
             className="w-full max-w-4xl bg-white/95 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-2xl border border-gray-100"
           >
-            <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end text-left text-charcoal">
+            <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end text-left text-charcoal" role="search" aria-label="Search coastal properties">
               {/* Filter 1: Purpose */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Purpose</label>
+                <label htmlFor="search-purpose" className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Purpose</label>
                 <select
+                  id="search-purpose"
                   value={searchParams.purpose}
                   onChange={(e) => setSearchParams({ ...searchParams, purpose: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold"
@@ -180,8 +192,9 @@ export default function Home() {
 
               {/* Filter 2: Location */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Location</label>
+                <label htmlFor="search-location" className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Location</label>
                 <select
+                  id="search-location"
                   value={searchParams.location}
                   onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold"
@@ -197,8 +210,9 @@ export default function Home() {
 
               {/* Filter 3: Property Type */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Property Type</label>
+                <label htmlFor="search-type" className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Property Type</label>
                 <select
+                  id="search-type"
                   value={searchParams.type}
                   onChange={(e) => setSearchParams({ ...searchParams, type: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold"
@@ -212,8 +226,9 @@ export default function Home() {
 
               {/* Filter 4: Bedrooms */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Bedrooms</label>
+                <label htmlFor="search-beds" className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Bedrooms</label>
                 <select
+                  id="search-beds"
                   value={searchParams.beds}
                   onChange={(e) => setSearchParams({ ...searchParams, beds: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold"
@@ -244,7 +259,8 @@ export default function Home() {
         <div className="container mx-auto px-6 lg:px-12">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-6">
             <div>
-              <h4 className="text-gold uppercase tracking-widest text-xs font-bold mb-3">Our Handpicked Selection</h4>
+              {/* Use p not h4 so heading hierarchy is h1 → h2 without skipping levels */}
+              <p className="text-gold uppercase tracking-widest text-xs font-bold mb-3">Our Handpicked Selection</p>
               <h2 className="text-3xl md:text-5xl font-serif text-charcoal font-bold">Featured Properties</h2>
             </div>
             <Link

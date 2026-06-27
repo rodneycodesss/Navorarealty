@@ -193,10 +193,11 @@ export default function ListYourProperty() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2">Property Type</label>
+                  <label htmlFor="list-property-type" className="block text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2">Property Type</label>
                   <div className="relative">
-                    <Building className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                    <Building className="absolute left-3 top-3.5 text-gray-400" size={16} aria-hidden="true" />
                     <select
+                      id="list-property-type"
                       name="propertyType"
                       value={formData.propertyType}
                       onChange={handleInputChange}
@@ -211,8 +212,9 @@ export default function ListYourProperty() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2">Location</label>
+                  <label htmlFor="list-location" className="block text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2">Location</label>
                   <select
+                    id="list-location"
                     name="location"
                     value={formData.location}
                     onChange={handleInputChange}
