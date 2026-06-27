@@ -1,0 +1,14 @@
+{
+  "name": "nyumba-by-rodstar",
+  "version": "1.0.0",
+  "description": "Real Estate Platform",
+  "scripts": {
+    "install": "cd frontend && npm install",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python -m venv venv && .\\venv\\Scripts\\Activate.ps1 && pip install -r requirements.txt && uvicorn main:app --reload",
+    "dev": "npm run dev:frontend",
+    "build": "cd frontend && npm run build"
+  },
+  "author": "Rodstar",
+  "license": "ISC"
+}
