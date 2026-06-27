@@ -74,6 +74,14 @@ class ContactSubmit(BaseModel):
     email: str
     message: str
 
+class ViewingSubmit(BaseModel):
+    customer: str
+    phone: str
+    property: str
+    property_id: int
+    preferred_date: str
+    preferred_time: str
+
 # Mock Database for Mombasa Coastal Properties
 properties_db = [
     {
@@ -394,6 +402,29 @@ def submit_contact(contact: ContactSubmit):
             print(f"Supabase error inserting contact issue: {e}")
             
     return {"success": True, "message": "Your message has been sent successfully. An agent will contact you shortly."}
+
+@app.post("/api/viewings")
+def submit_viewing_request(request: ViewingSubmit):
+    new_id = len(viewings_db) + 201
+    new_viewing = {
+        "id": new_id,
+        "customer": request.customer,
+        "property": request.property,
+        "property_id": request.property_id,
+        "preferred_date": request.preferred_date,
+        "preferred_time": request.preferred_time,
+        "phone": request.phone,
+        "status": "Pending"
+    }
+    
+    if supabase:
+        try:
+            supabase.table("viewings").insert(new_viewing).execute()
+        except Exception as e:
+            print(f"Supabase error inserting viewing request: {e}")
+            
+    viewings_db.append(new_viewing)
+    return {"success": True, "message": "Viewing request submitted successfully.", "viewing_id": new_id}
 
 # ==========================================
 # ADMIN DASHBOARD SCHEMAS & MOCK DATABASES

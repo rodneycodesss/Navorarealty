@@ -197,10 +197,37 @@ export default function PropertyDetails() {
 
   const handleRequestSubmit = (e) => {
     e.preventDefault();
-    setSubmittedRequest(true);
-    setTimeout(() => {
-      setViewingForm({ name: '', phone: '', date: '', message: '' });
-    }, 2000);
+
+    const payload = {
+      customer: viewingForm.name,
+      phone: viewingForm.phone,
+      property: property.title,
+      property_id: property.id,
+      preferred_date: viewingForm.date,
+      preferred_time: "10:00 AM" // Default standard coastal morning viewing slot
+    };
+
+    fetch('http://localhost:8000/api/viewings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setSubmittedRequest(true);
+          setTimeout(() => {
+            setViewingForm({ name: '', phone: '', date: '', message: '' });
+          }, 2000);
+        }
+      })
+      .catch((err) => {
+        console.warn("API error booking viewing, falling back to local simulation:", err);
+        setSubmittedRequest(true);
+        setTimeout(() => {
+          setViewingForm({ name: '', phone: '', date: '', message: '' });
+        }, 2000);
+      });
   };
 
   if (loading) {
